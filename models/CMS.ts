@@ -1,6 +1,5 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
-// 🔧 NEW: Define structured interfaces for CMS data
 export interface IHeroSlide {
   type: 'image' | 'video';
   url: string;
@@ -57,64 +56,85 @@ export interface ICMSDocument extends Document {
   updatedAt: Date;
 }
 
+const HeroSlideSchema = new Schema<IHeroSlide>(
+  {
+    type: { type: String, enum: ['image', 'video'] },
+    url: { type: String },
+    heading: { type: String },
+  },
+  { _id: false }
+);
+
+const FAQItemSchema = new Schema<IFAQItem>(
+  {
+    q: { type: String },
+    a: { type: String },
+  },
+  { _id: false }
+);
+
+// ✅ Fix: Empty flexible schemas instead of [Schema.Types.Mixed]
+const VisionarySchema = new Schema({}, { strict: false, _id: false });
+const LegalPageSchema = new Schema({}, { strict: false, _id: false });
+
 const CMSSchema = new Schema<ICMSDocument>(
   {
-    type: { 
-      type: String, 
-      default: 'global' 
+    type: {
+      type: String,
+      default: 'global',
     },
-    uiConfig: { 
-      type: Schema.Types.Mixed, 
-      default: {} 
+    uiConfig: {
+      type: Schema.Types.Mixed,
+      default: {},
     },
-    aboutConfig: { 
-      type: Schema.Types.Mixed, 
-      default: {} 
+    aboutConfig: {
+      type: Schema.Types.Mixed,
+      default: {},
     },
-    heroSlides: { 
-      type: [Schema.Types.Mixed], 
-      default: [] 
+    heroSlides: {
+      type: [HeroSlideSchema],
+      default: [],
     },
-    galleryImages: { 
-      type: [String], 
-      default: [] 
+    galleryImages: {
+      type: [String],
+      default: [],
     },
     promotionalVideos: {
       type: [String],
-      default: []
+      default: [],
     },
-    faqs: { 
-      type: [Schema.Types.Mixed], 
-      default: [] 
+    faqs: {
+      type: [FAQItemSchema],
+      default: [],
     },
-    visionaries: { 
-      type: [Schema.Types.Mixed], 
-      default: [] 
+    visionaries: {
+      type: [VisionarySchema],
+      default: [],
     },
-    categories: { 
-      type: [String], 
-      default: [] 
+    categories: {
+      type: [String],
+      default: [],
     },
     socialLinks: {
       type: Schema.Types.Mixed,
-      default: {}
+      default: {},
     },
     corporateInfo: {
       type: Schema.Types.Mixed,
-      default: {}
+      default: {},
     },
     legalPages: {
-      type: [Schema.Types.Mixed],
-      default: []
-    }
-  }, 
-  { 
-    strict: false, 
-    timestamps: true 
+      type: [LegalPageSchema],
+      default: [],
+    },
+  },
+  {
+    strict: false,
+    timestamps: true,
   }
 );
 
-const CMS: Model<ICMSDocument> = mongoose.models.CMS || 
-  mongoose.model<ICMSDocument>('CMS', CMSSchema);
+const CMS: Model<ICMSDocument> =
+  mongoose.models.CMS || mongoose.model<ICMSDocument>('CMS', CMSSchema);
 
 export { CMS };
