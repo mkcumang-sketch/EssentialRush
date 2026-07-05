@@ -1,7 +1,6 @@
 // models/usertemp.ts
 import mongoose, { Document, Model, Schema } from 'mongoose';
 
-// ─── Interface ────────────────────────────────────────────────────────────────
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
@@ -10,7 +9,14 @@ export interface IUser extends Document {
   role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
   myReferralCode: string;
   referredBy?: string;
+  // ✅ FIX: Added missing fields used in account/page.tsx
   walletPoints: number;
+  walletBalance: number;
+  loyaltyTier: string;
+  totalReferrals?: number;
+  totalEarned?: number;
+  resetOtp?: string;
+  otpExpiry?: Date;
   notifications: Array<{
     title: string;
     desc: string;
@@ -21,7 +27,6 @@ export interface IUser extends Document {
   updatedAt: Date;
 }
 
-// ─── Schema ───────────────────────────────────────────────────────────────────
 const UserSchema = new Schema<IUser>(
   {
     name:           { type: String, required: true, trim: true },
@@ -31,6 +36,12 @@ const UserSchema = new Schema<IUser>(
     myReferralCode: { type: String, unique: true, sparse: true },
     referredBy:     { type: String },
     walletPoints:   { type: Number, default: 0 },
+    walletBalance:  { type: Number, default: 0 },
+    loyaltyTier:    { type: String, default: 'Silver Vault' },
+    totalReferrals: { type: Number, default: 0 },
+    totalEarned:    { type: Number, default: 0 },
+    resetOtp:       { type: String },
+    otpExpiry:      { type: Date },
     notifications: [
       {
         title:  { type: String },
@@ -43,7 +54,6 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
-// ─── Export ───────────────────────────────────────────────────────────────────
 const UserModel: Model<IUser> =
   (mongoose.models.User as Model<IUser>) ||
   mongoose.model<IUser>('User', UserSchema);
