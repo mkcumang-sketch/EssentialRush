@@ -4,117 +4,107 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useEffect, useState } from 'react';
 
+// 🚀 1. STRICT TYPESCRIPT INTERFACE
 export interface CartItem {
-  _id?: string;
-  id?: string;
-  name?: string;
-  title?: string;
-  price?: number;
-  offerPrice?: number;
-  quantity?: number;
-  qty?: number;
-  imageUrl?: string;
-  images?: string[];
+  _id: string; // MongoDB use kar rahe hain, toh _id primary hoga
+  name: string;
   brand?: string;
+  price: number;
+  offerPrice?: number;
+  quantity: number; // Standardized (removed 'qty' confusion)
+  imageUrl?: string;
+  category?: string;
   slug?: string;
-  [key: string]: any;
+  badge?: string;
+  stock?: number;
 }
 
 interface CartStore {
   items: CartItem[];
-  _hasHydrated: boolean;
-  setHasHydrated: (val: boolean) => void;
-  addItem: (item: CartItem) => void;
+  addItem: (item: Partial<CartItem> & { _id: string }) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
-  totalItems: () => number;
-  totalPrice: () => number;
+  getTotalItems: () => number;
+  getTotalPrice: () => number;
 }
 
+// 🚀 2. ZUSTAND STORE CREATION (With LocalStorage Persistence)
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
-      _hasHydrated: false,
 
-      setHasHydrated: (val: boolean) => set({ _hasHydrated: val }),
-
-      addItem: (item: CartItem) =>
+      addItem: (item) =>
         set((state) => {
-          const id = item._id || item.id || item.slug || item.name || '';
-          const existing = state.items.find(
-            (i) => (i._id || i.id || i.slug || i.name) === id
-          );
-          if (existing) {
+          const existingItem = state.items.find((i) => i._id === item._id);
+          
+          if (existingItem) {
+            // Agar pehle se hai toh sirf quantity badhao
             return {
               items: state.items.map((i) =>
-                (i._id || i.id || i.slug || i.name) === id
-                  ? { ...i, quantity: (i.quantity || i.qty || 1) + 1 }
+                i._id === item._id
+                  ? { ...i, quantity: i.quantity + 1 }
                   : i
               ),
             };
           }
-          return { items: [...state.items, { ...item, quantity: 1 }] };
+          
+          // Naya item add karo default quantity 1 ke saath
+          return { 
+            items: [...state.items, { ...item, quantity: 1 } as CartItem] 
+          };
         }),
 
-      removeItem: (id: string) =>
+      removeItem: (id) =>
         set((state) => ({
-          items: state.items.filter(
-            (i) => (i._id || i.id || i.slug || i.name) !== id
-          ),
+          items: state.items.filter((i) => i._id !== id),
         })),
 
-      updateQuantity: (id: string, quantity: number) =>
+      updateQuantity: (id, quantity) =>
         set((state) => ({
           items: state.items.map((i) =>
-            (i._id || i.id || i.slug || i.name) === id
-              ? { ...i, quantity }
-              : i
+            i._id === id ? { ...i, quantity: Math.max(1, quantity) } : i
           ),
         })),
 
       clearCart: () => set({ items: [] }),
 
-      totalItems: () =>
-        get().items.reduce((sum, i) => sum + (i.quantity || i.qty || 1), 0),
+      getTotalItems: () =>
+        get().items.reduce((sum, item) => sum + item.quantity, 0),
 
-      totalPrice: () =>
+      getTotalPrice: () =>
         get().items.reduce(
-          (sum, i) => sum + Number(i.offerPrice || i.price || 0) * (i.quantity || i.qty || 1),
+          (sum, item) => sum + Number(item.offerPrice || item.price || 0) * item.quantity,
           0
         ),
     }),
     {
-      name: 'cart-storage',
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
-      },
+      name: 'essential-cart-storage', // Tumhare brand ka storage name
     }
   )
 );
 
+// 🚀 3. HYDRATION SAFE CUSTOM HOOK (Next.js SSR Fix)
 export function useHydratedCart() {
   const store = useCartStore();
-  const [hydrated, setHydrated] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    const unsub = useCartStore.persist.onFinishHydration(() => {
-      setHydrated(true);
-    });
-    if (useCartStore.persist.hasHydrated()) {
-      setHydrated(true);
-    }
-    return () => unsub();
+    setIsHydrated(true);
   }, []);
 
-  if (!hydrated) {
+  // Jab tak client par mount na ho, empty data do taaki HTML mismatch (hydration error) na ho
+  if (!isHydrated) {
     return {
-      ...store,
       items: [],
+      addItem: () => {},
+      removeItem: () => {},
+      updateQuantity: () => {},
+      clearCart: () => {},
+      getTotalItems: () => 0,
+      getTotalPrice: () => 0,
       _hasHydrated: false,
-      totalItems: () => 0,
-      totalPrice: () => 0,
     };
   }
 

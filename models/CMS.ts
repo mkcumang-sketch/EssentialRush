@@ -1,5 +1,8 @@
-import mongoose, { Document, Schema, Model } from 'mongoose';
+﻿import mongoose, { Document, Schema, Model } from 'mongoose';
 
+// ==========================================
+// 1. TYPESCRIPT INTERFACES
+// ==========================================
 export interface IHeroSlide {
   type: 'image' | 'video';
   url: string;
@@ -24,21 +27,6 @@ export interface IAboutConfig {
   boldWords?: string;
 }
 
-export interface ISocialLinks {
-  facebook?: string;
-  instagram?: string;
-  twitter?: string;
-  linkedin?: string;
-  youtube?: string;
-}
-
-export interface ICorporateInfo {
-  companyName: string;
-  email: string;
-  phone?: string;
-  address?: string;
-}
-
 export interface ICMSDocument extends Document {
   type: string;
   uiConfig: IUIConfig;
@@ -49,92 +37,97 @@ export interface ICMSDocument extends Document {
   faqs: IFAQItem[];
   visionaries: any[];
   categories: string[];
-  socialLinks?: ISocialLinks;
-  corporateInfo?: ICorporateInfo;
+  socialLinks?: any;
+  corporateInfo?: any;
   legalPages?: any[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-const HeroSlideSchema = new Schema<IHeroSlide>(
-  {
-    type: { type: String, enum: ['image', 'video'] },
-    url: { type: String },
-    heading: { type: String },
-  },
-  { _id: false }
-);
+// ==========================================
+// 2. SUB-SCHEMAS
+// ==========================================
+const FAQItemSchema = new Schema({
+  q: { type: String, default: '' },
+  a: { type: String, default: '' }
+}, { _id: false });
 
-const FAQItemSchema = new Schema<IFAQItem>(
-  {
-    q: { type: String },
-    a: { type: String },
-  },
-  { _id: false }
-);
+const VisionarySchema = new Schema({
+  name: { type: String, default: '' },
+  role: { type: String, default: '' },
+  image: { type: String, default: '' },
+  bio: { type: String, default: '' }
+}, { _id: false });
 
-// ✅ Fix: Empty flexible schemas instead of [Schema.Types.Mixed]
-const VisionarySchema = new Schema({}, { strict: false, _id: false });
-const LegalPageSchema = new Schema({}, { strict: false, _id: false });
+const LegalPageSchema = new Schema({
+  id: { type: String, required: true },
+  title: { type: String, default: '' },
+  slug: { type: String, default: '' },
+  content: { type: String, default: '' }
+}, { _id: false });
 
-const CMSSchema = new Schema<ICMSDocument>(
+// ==========================================
+// 3. MAIN SCHEMA (Fixed TS Mismatch Error)
+// ==========================================
+// 🚀 Removed <ICMSDocument> from here to prevent strict internal schema clashes
+const CMSSchema = new Schema(
   {
-    type: {
-      type: String,
-      default: 'global',
+    type: { 
+      type: String, 
+      default: 'global' 
     },
-    uiConfig: {
-      type: Schema.Types.Mixed,
-      default: {},
+    uiConfig: { 
+      type: Schema.Types.Mixed, 
+      default: {} 
     },
-    aboutConfig: {
-      type: Schema.Types.Mixed,
-      default: {},
+    aboutConfig: { 
+      type: Schema.Types.Mixed, 
+      default: {} 
     },
-    heroSlides: {
-      type: [HeroSlideSchema],
-      default: [],
+    heroSlides: { 
+      type: [Schema.Types.Mixed], 
+      default: [] 
     },
-    galleryImages: {
-      type: [String],
-      default: [],
+    galleryImages: { 
+      type: [String], 
+      default: [] 
     },
     promotionalVideos: {
       type: [String],
-      default: [],
+      default: []
     },
-    faqs: {
+    faqs: { 
       type: [FAQItemSchema],
-      default: [],
+      default: [] 
     },
-    visionaries: {
+    visionaries: { 
       type: [VisionarySchema],
-      default: [],
+      default: [] 
     },
-    categories: {
-      type: [String],
-      default: [],
+    categories: { 
+      type: [String], 
+      default: [] 
     },
     socialLinks: {
       type: Schema.Types.Mixed,
-      default: {},
+      default: {}
     },
     corporateInfo: {
       type: Schema.Types.Mixed,
-      default: {},
+      default: {}
     },
     legalPages: {
       type: [LegalPageSchema],
-      default: [],
-    },
-  },
-  {
-    strict: false,
-    timestamps: true,
+      default: []
+    }
+  }, 
+  { 
+    strict: false, 
+    timestamps: true 
   }
 );
 
-const CMS: Model<ICMSDocument> =
-  mongoose.models.CMS || mongoose.model<ICMSDocument>('CMS', CMSSchema);
+// 🚀 Generic is still applied here so the rest of your app knows exactly what data to expect
+const CMS: Model<ICMSDocument> = mongoose.models.CMS || mongoose.model<ICMSDocument>('CMS', CMSSchema);
 
 export { CMS };

@@ -1,40 +1,45 @@
+// lib/mongodb.ts
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI!;
+declare global {
+  // eslint-disable-next-line no-var
+  var _mongooseConnection: {
+    conn: typeof mongoose | null;
+    promise: Promise<typeof mongoose> | null;
+  };
+}
+
+const MONGODB_URI = process.env.MONGODB_URI as string;
 
 if (!MONGODB_URI) {
-  throw new Error('⚠️ FATAL ERROR: MONGODB_URI is missing in environment variables.');
+  throw new Error('Please define the MONGODB_URI environment variable in .env.local');
 }
 
-// Enterprise Singleton Pattern (Caches the connection)
-let cached = (global as any).mongoose;
-
-if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
+// Use global to reuse connection across hot reloads in development
+if (!global._mongooseConnection) {
+  global._mongooseConnection = { conn: null, promise: null };
 }
 
-async function connectDB() {
-  if (cached.conn) {
-    return cached.conn; // Agar pehle se connected hai, toh wahi use karo (Super Fast)
-  }
+const cached = global._mongooseConnection;
+
+const connectDB = async (): Promise<typeof mongoose> => {
+  if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    // 🚀 THE FIX: Cast as mongoose.ConnectOptions
-    const opts = {
-      bufferCommands: false, // Prevents hanging requests
-      maxPoolSize: 100, // Handles 100 concurrent enterprise requests
-      serverSelectionTimeoutMS: 5000, 
-    } as mongoose.ConnectOptions;
-
-    mongoose.set('strictQuery', false); // Fix for Mongoose v7+ strictQuery warnings
-
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
+    cached.promise = mongoose.connect(MONGODB_URI, {
+      bufferCommands: false,
+      maxPoolSize: 10,
     });
   }
-  
-  cached.conn = await cached.promise;
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (error) {
+    cached.promise = null;
+    throw error;
+  }
+
   return cached.conn;
-}
+};
 
 export default connectDB;

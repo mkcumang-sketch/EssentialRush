@@ -1,71 +1,124 @@
-import { NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+// lib/auth.ts
+import { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import mongoose, { Model } from 'mongoose';
+import connectDB from '@/lib/mongodb';
+import bcrypt from 'bcryptjs';
 
-// 🚀 FIX: '@' alias use kiya hai taaki lamba path na likhna pade
-import connectDB from "@/lib/mongodb"; 
-import User from "@/models/usertemp"; 
+// ─── Extend next-auth types ───────────────────────────────────────────────────
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+      role?: string;
+    };
+  }
+  interface User {
+    id: string;
+    role?: string;
+  }
+}
 
-// 👑 VIP ADMIN EMAILS (Godmode Access)
-const ADMIN_EMAILS = [
-  "us7081569@gmail.com",
-  "us7907us@gmail.com"
-];
+declare module 'next-auth/jwt' {
+  interface JWT {
+    id?: string;
+    role?: string;
+  }
+}
 
-// 🚀 FIX: Sirf options export ho rahe hain, NextAuth handler nahi
+// ─── User document interface ──────────────────────────────────────────────────
+interface IAuthUser {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  email: string;
+  password?: string;
+  role: string;
+  myReferralCode?: string;
+  referredBy?: string;
+  walletPoints: number;
+  notifications: unknown[];
+}
+
+// ─── Inline User Schema ───────────────────────────────────────────────────────
+const UserSchema = new mongoose.Schema<IAuthUser>(
+  {
+    name:           { type: String, required: true },
+    email:          { type: String, required: true, unique: true },
+    password:       { type: String },
+    role:           { type: String, default: 'USER' },
+    myReferralCode: { type: String },
+    referredBy:     { type: String },
+    walletPoints:   { type: Number, default: 0 },
+    notifications:  { type: Array, default: [] },
+  },
+  { timestamps: true }
+);
+
+// ✅ FIX: Explicitly type as Model<IAuthUser> — resolves ts(2349) union type error
+const AuthUser: Model<IAuthUser> =
+  (mongoose.models.User as Model<IAuthUser>) ||
+  mongoose.model<IAuthUser>('User', UserSchema);
+
+// ─── Auth Options ─────────────────────────────────────────────────────────────
 export const authOptions: NextAuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email:    { label: 'Email',    type: 'email'    },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        await connectDB();
+
+        const user = await AuthUser.findOne({
+          email: credentials.email.toLowerCase().trim(),
+        }).select('+password');
+
+        if (!user) return null;
+
+        const isValid = await bcrypt.compare(
+          credentials.password,
+          user.password ?? ''
+        );
+        if (!isValid) return null;
+
+        return {
+          id:    user._id.toString(),
+          name:  user.name,
+          email: user.email,
+          role:  user.role,
+        };
+      },
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
+
   callbacks: {
-    async signIn({ user }) {
-      await connectDB();
-      // DB mein check karo user hai ya nahi, nahi toh create karo
-      const existingUser = await User.findOne({ email: user.email });
-      if (!existingUser) {
-        await User.create({
-          name: user.name,
-          email: user.email,
-          image: user.image,
-          role: ADMIN_EMAILS.includes(user.email as string) ? "SUPER_ADMIN" : "USER"
-        });
-      }
-      return true;
-    },
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        
-        // 🚀 THE MAGIC: Hardcoded Check for VIPs
-        if (ADMIN_EMAILS.includes(user.email as string)) {
-          token.role = "SUPER_ADMIN";
-        } else {
-          // Normal user ke liye DB wala role ya default USER
-          await connectDB();
-          const dbUser = await User.findOne({ email: user.email });
-          token.role = dbUser?.role || "USER";
-        }
+        token.id   = user.id;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id as string;
-        
-        // 🚀 THE MAGIC: Session mein role inject karna
-        if (ADMIN_EMAILS.includes(session.user.email as string)) {
-          (session.user as any).role = "SUPER_ADMIN";
-        } else {
-          (session.user as any).role = token.role;
-        }
+        session.user.id   = token.id as string;
+        session.user.role = token.role as string;
       }
       return session;
-    }
+    },
   },
+
+  pages: {
+    signIn: '/login',
+  },
+
+  session: { strategy: 'jwt' },
   secret: process.env.NEXTAUTH_SECRET,
 };

@@ -1,85 +1,51 @@
-// 🔧 NEW: Type-safe error handler
+// lib/error-handler.ts
 
-export interface APIErrorResponse {
-  success: false;
-  error: string;
-  statusCode: number;
-  details?: Record<string, string>;
-}
-
-export interface APISuccessResponse<T = any> {
-  success: true;
-  data: T;
-  statusCode: number;
-}
-
-export type APIResponse<T = any> = APISuccessResponse<T> | APIErrorResponse;
-
-/**
- * 🔧 Type-safe error handler for try-catch blocks
- * Usage: const error = handleError(err);
- */
-export function handleError(error: unknown): {
+export interface ErrorInfo {
   message: string;
   statusCode: number;
-  details?: Record<string, string>;
-} {
-  // Handle Mongoose validation errors
+  details?: string;
+}
+
+export const handleError = (error: unknown): ErrorInfo => {
+  // MongoDB duplicate key
+  if (isMongoError(error) && error.code === 11000) {
+    return {
+      message: 'A record with this value already exists.',
+      statusCode: 409,
+      details: JSON.stringify(error.keyValue),
+    };
+  }
+
+  // Mongoose validation error
+  if (isValidationError(error)) {
+    const messages = Object.values(error.errors)
+      .map((e: any) => e.message)
+      .join(', ');
+    return { message: messages, statusCode: 400 };
+  }
+
+  // Standard JS Error
   if (error instanceof Error) {
-    // Check if it's a Mongoose ValidationError
-    if ('errors' in error && typeof error.errors === 'object') {
-      const details: Record<string, string> = {};
-      for (const [key, value] of Object.entries(error.errors)) {
-        if (value && typeof value === 'object' && 'message' in value) {
-          details[key] = String(value.message);
-        }
-      }
-      return {
-        message: error.message || 'Validation failed',
-        statusCode: 400,
-        details
-      };
-    }
-
-    // Handle general Error instances
     return {
-      message: error.message || 'Internal server error',
-      statusCode: 500
+      message: error.message || 'An unexpected error occurred.',
+      statusCode: 500,
     };
   }
 
-  // Handle string errors
-  if (typeof error === 'string') {
-    return {
-      message: error,
-      statusCode: 500
-    };
-  }
+  return { message: 'An unexpected error occurred.', statusCode: 500 };
+};
 
-  // Handle unknown errors
-  return {
-    message: 'An unknown error occurred',
-    statusCode: 500
-  };
+// ─── Type guards ──────────────────────────────────────────────────────────────
+function isMongoError(err: unknown): err is { code: number; keyValue?: object } {
+  return typeof err === 'object' && err !== null && 'code' in err;
 }
 
-/**
- * 🔧 Helper to check if error is of a specific type
- */
-export function isMongooseError(error: unknown): boolean {
+function isValidationError(
+  err: unknown
+): err is { name: string; errors: Record<string, unknown> } {
   return (
-    error instanceof Error &&
-    ('errors' in error || error.name === 'ValidationError' || error.name === 'CastError')
+    typeof err === 'object' &&
+    err !== null &&
+    (err as any).name === 'ValidationError'
   );
-}
-
-/**
- * 🔧 Safe JSON parsing with error handling
- */
-export async function safeJsonParse<T = any>(text: string): Promise<T> {
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new Error(`Invalid JSON: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
 }

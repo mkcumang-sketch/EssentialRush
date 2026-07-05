@@ -5,10 +5,12 @@ import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import User from '@/models/usertemp';
+
+// 🚀 FIX 1: Reverted to Default Import (Solves the red line on import)
+import User from '@/models/usertemp'; 
+
 import UserService from '@/services/user.service';
-import { validateInput } from '@/lib/validation';
-import { referralApplySchema } from '@/lib/validation';
+import { validateInput, referralApplySchema } from '@/lib/validation';
 import { ApiResponse } from '@/types';
 import { sendReferralRewardEmail } from '@/lib/mail';
 
@@ -33,7 +35,10 @@ export async function POST(req: Request): Promise<NextResponse<ApiResponse>> {
     try {
         await connectDB();
         
-        // �️ FIREWALL: Verify user session
+        // 🚀 FIX 2: Type cast to bypass ts(2349) "expression is not callable" error forever
+        const UserModel = User as mongoose.Model<any>;
+        
+        // 🛡️ FIREWALL: Verify user session
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
             return NextResponse.json({ 
@@ -65,7 +70,7 @@ export async function POST(req: Request): Promise<NextResponse<ApiResponse>> {
         }
 
         // 🛡️ FIREWALL: Verify if code exists (case-insensitive)
-        const referrer = await User.findOne({ 
+        const referrer = await UserModel.findOne({ 
             myReferralCode: { $regex: new RegExp(`^${referralCode}$`, 'i') } 
         }).select('_id name');
         
@@ -82,7 +87,7 @@ export async function POST(req: Request): Promise<NextResponse<ApiResponse>> {
         }
 
         // 🏆 ATOMIC REFERRAL APPLICATION (PREVENT RACE CONDITION)
-        const result = await User.findOneAndUpdate(
+        const result = await UserModel.findOneAndUpdate(
             { 
                 _id: session.user.id,
                 referredBy: { $exists: false } // Atomic check
@@ -112,17 +117,17 @@ export async function POST(req: Request): Promise<NextResponse<ApiResponse>> {
         // 📧 SEND REFERRAL REWARD EMAIL TO REFERRER
         try {
             // Get referrer details for email
-            const referrerRaw = await User.findOne({ myReferralCode: referralCode })
+            const referrerRaw = await UserModel.findOne({ myReferralCode: referralCode })
                 .select('name email')
                 .lean();
             
             if (referrerRaw && !Array.isArray(referrerRaw)) {
-                const referrer = referrerRaw as { email?: string; name?: string };
-                const to = referrer.email?.trim();
+                const referrerObj = referrerRaw as { email?: string; name?: string };
+                const to = referrerObj.email?.trim();
                 if (to) {
                     await sendReferralRewardEmail(
                         to,
-                        referrer.name ?? '',
+                        referrerObj.name ?? '',
                         currentUser.name,
                         100 // Reward amount
                     );
@@ -150,11 +155,12 @@ export async function POST(req: Request): Promise<NextResponse<ApiResponse>> {
             }
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Referral Apply Error:", error);
         
         // 🛡️ DATABASE ERROR HANDLING
-        if (error.code === 11000) {
+        const err = error as { code?: number };
+        if (err.code === 11000) {
             return NextResponse.json({ 
                 success: false, 
                 error: "That code is already in use." 
