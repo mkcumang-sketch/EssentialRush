@@ -1,0 +1,147 @@
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
+import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
+import { getToken } from "next-auth/jwt";
+import { getServerSession } from "next-auth";
+// 🚀 FIX: Import authOptions from a dedicated lib/auth.ts file to prevent App/Pages Router conflicts
+import { authOptions } from "@/lib/auth"; 
+import { revalidatePath } from 'next/cache';
+import connectDB from "@/lib/mongodb";
+
+// 🌟 2. SCHEMA DEFINITION
+const reviewSchema = new mongoose.Schema({
+    userName: { type: String, required: true },
+    userId: { type: String, index: true, sparse: true },
+    comment: { type: String, required: true },
+    rating: { type: Number, default: 5 },
+    product: { type: String, default: 'GLOBAL' },
+    visibility: { type: String, default: 'pending' }, 
+    isAdminGenerated: { type: Boolean, default: false },
+    media: { type: [String], default: [] }, 
+    createdAt: { type: Date, default: Date.now }
+});
+
+// Avoid model overwrite error in Next.js hot reload
+const Review = mongoose.models.Review || mongoose.model('Review', reviewSchema);
+
+// 🌟 3. STRICT SECURITY VERIFICATION (MILITARY GRADE)
+const isSuperAdminRequest = async (req: NextRequest) => {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    return token && (token as any).role === 'SUPER_ADMIN';
+};
+
+// ==========================================
+// 🚀 API ROUTES
+// ==========================================
+
+export async function GET(req: NextRequest) {
+    try {
+        await connectDB(); // 👈 YEH LINE SABSE ZAROORI HAI
+        
+        const { searchParams } = new URL(req.url);
+        const wantsAdminView = searchParams.get('admin') === 'true';
+
+        if (wantsAdminView) {
+            if (!(await isSuperAdminRequest(req))) {
+                return NextResponse.json({ success: false, error: 'You do not have access to do that.' }, { status: 403 });
+            }
+        }
+
+        const query = wantsAdminView ? {} : { visibility: 'public' };
+        const reviews = await Review.find(query).sort({ createdAt: -1 });
+        
+        return NextResponse.json({ success: true, data: reviews });
+    } catch (error) { 
+        console.error("GET Reviews Error:", error);
+        return NextResponse.json({ success: false, error: "We could not load reviews. Try again." }, { status: 500 }); 
+    }
+}
+
+export async function POST(req: NextRequest) {
+    try {
+        await connectDB();
+        const body = await req.json();
+
+        if (body.honeyPot && body.honeyPot.length > 0) {
+            return NextResponse.json({ success: false, message: "Security check failed. Refresh the page and try again." }, { status: 400 });
+        }
+
+        const session = await getServerSession(authOptions);
+        const userId = session?.user?.id || (session?.user as any)?.id;
+        
+        if (!userId) {
+            return NextResponse.json(
+                { success: false, message: "Sign in to leave a review." },
+                { status: 401 }
+            );
+        }
+
+        const userName = typeof body.userName === "string" && body.userName.trim()
+            ? body.userName.trim()
+            : session?.user?.name || "Member";
+        const newReview = await Review.create({
+            userName,
+            userId,
+            comment: String(body.comment || "").slice(0, 8000),
+            rating: Math.min(5, Math.max(1, Number(body.rating) || 5)),
+            product: body.product || "GLOBAL",
+            visibility: "pending",
+            isAdminGenerated: Boolean(session && (session.user as any).role === "SUPER_ADMIN" && body.isAdminGenerated),
+            media: Array.isArray(body.media) ? body.media : [],
+        });
+
+        revalidatePath('/', 'layout');
+        return NextResponse.json({ success: true, data: newReview });
+    } catch (error) { 
+        console.error("POST Review Error:", error);
+        return NextResponse.json({ success: false }, { status: 500 }); 
+    }
+}
+
+export async function PATCH(req: NextRequest) {
+    try {
+        if (!(await isSuperAdminRequest(req))) {
+            return NextResponse.json({ success: false, error: 'You do not have access to do that.' }, { status: 403 });
+        }
+        
+        await connectDB();
+        const { reviewId, visibility } = await req.json();
+        
+        if (!reviewId || !visibility) {
+            return NextResponse.json({ success: false, error: "Something was missing. Try again." }, { status: 400 });
+        }
+        
+        const updatedReview = await Review.findByIdAndUpdate(reviewId, { visibility }, { new: true });
+        revalidatePath('/', 'layout');
+        
+        return NextResponse.json({ success: true, data: updatedReview });
+    } catch (error) { 
+        console.error("PATCH Review Error:", error);
+        return NextResponse.json({ success: false, error: "We could not update the review." }, { status: 500 }); 
+    }
+}
+
+export async function DELETE(req: NextRequest) {
+    try {
+        if (!(await isSuperAdminRequest(req))) {
+            return NextResponse.json({ success: false, error: 'You do not have access to do that.' }, { status: 403 });
+        }
+        
+        await connectDB();
+        
+        const body = await req.json();
+        const { id } = body;
+        
+        if (!id) return NextResponse.json({ success: false, error: "Review ID missing." }, { status: 400 });
+
+        await Review.findByIdAndDelete(id);
+        revalidatePath('/', 'layout');
+        
+        return NextResponse.json({ success: true, message: "Review removed." });
+    } catch (error) {
+        console.error("DELETE Review Error:", error);
+        return NextResponse.json({ success: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
+}
