@@ -18,9 +18,8 @@ const AbandonedCartSchema = new mongoose.Schema(
   { strict: false }
 );
 
-const AbandonedCart =
-  mongoose.models.AbandonedCart ||
-  mongoose.model("AbandonedCart", AbandonedCartSchema);
+// 🚀 FIX: Explicitly cast to mongoose.Model<any> to prevent the ts(2349) union type error
+const AbandonedCart = (mongoose.models.AbandonedCart as mongoose.Model<any>) || mongoose.model("AbandonedCart", AbandonedCartSchema);
 
 async function isSuperAdminRequest(req: NextRequest) {
   const token = await getToken({
@@ -42,11 +41,16 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
+    
+    // 🚀 AbandonedCart is now safely typed as a Mongoose Model, so .findById works perfectly
     const leadRaw = await AbandonedCart.findById(leadId).lean();
+    
     if (!leadRaw || Array.isArray(leadRaw)) {
       return NextResponse.json({ success: false, error: "Lead not found" }, { status: 404 });
     }
+    
     const lead = leadRaw as { phone?: string; name?: string };
+    
     if (!lead.phone) {
       return NextResponse.json({ success: false, error: "Lead has no phone" }, { status: 400 });
     }

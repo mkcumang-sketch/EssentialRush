@@ -1,44 +1,39 @@
-// models/AbandonedCart.ts
-import mongoose, { Document, Schema, Model } from 'mongoose';
+import mongoose, { Document, Schema, Model } from "mongoose";
 
-export interface IAbandonedCart extends Document {
+interface IAbandonedCart extends Document {
   name: string;
   email: string;
   phone: string;
-  userId: string;
   cartTotal: number;
-  items: any;
-  status: 'ABANDONED' | 'OFFER_SENT' | 'RECOVERED' | 'EXPIRED';
-  lastInteraction: Date;
-  recoveryCode?: string;
-  recoveryEmailSent: boolean;
-  recoveryEmailSentAt?: Date;
-  recoverySMSCount: number;
-  lastRecoveryAt?: Date;
+  status: "ABANDONED" | "RECOVERED" | "CONVERTED";
   createdAt: Date;
-  updatedAt: Date;
+  updatedAt?: Date;
 }
 
 const AbandonedCartSchema = new Schema<IAbandonedCart>(
   {
-    name:                 { type: String, default: 'Vault Client' },
-    email:                { type: String, default: '', index: true },
-    phone:                { type: String, default: '', index: true },
-    userId:               { type: String, default: '', index: true, sparse: true },
-    cartTotal:            { type: Number, default: 0 },
-    items:                { type: Array,  default: [] },
-    status:               { type: String, default: 'ABANDONED', enum: ['ABANDONED', 'OFFER_SENT', 'RECOVERED', 'EXPIRED'] },
-    lastInteraction:      { type: Date,   default: Date.now },
-    recoveryCode:         { type: String },
-    recoveryEmailSent:    { type: Boolean, default: false },
-    recoveryEmailSentAt:  { type: Date },
-    recoverySMSCount:     { type: Number, default: 0 },
-    lastRecoveryAt:       { type: Date },
+    name: { type: String, default: "Vault Client", trim: true },
+    email: { type: String, default: "", lowercase: true },
+    phone: { type: String, default: "", required: true },
+    cartTotal: { type: Number, default: 0, min: 0 },
+    status: {
+      type: String,
+      enum: ["ABANDONED", "RECOVERED", "CONVERTED"],
+      default: "ABANDONED",
+    },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
   },
-  { timestamps: true, strict: false }
+  { timestamps: true }
 );
 
-// ✅ FIX: Explicit Model<IAbandonedCart> type — resolves ts(2349)
-export const AbandonedCart: Model<IAbandonedCart> =
+// Index for faster queries
+AbandonedCartSchema.index({ phone: 1 });
+AbandonedCartSchema.index({ email: 1 });
+AbandonedCartSchema.index({ createdAt: -1 });
+
+export const AbandonedCart =
   (mongoose.models.AbandonedCart as Model<IAbandonedCart>) ||
-  mongoose.model<IAbandonedCart>('AbandonedCart', AbandonedCartSchema);
+  mongoose.model<IAbandonedCart>("AbandonedCart", AbandonedCartSchema);
+
+export type { IAbandonedCart };
