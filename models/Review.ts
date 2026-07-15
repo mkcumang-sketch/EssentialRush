@@ -59,7 +59,7 @@ const ReviewSchema = new Schema<IReview>(
 ReviewSchema.index({ product: 1, visibility: 1 });
 ReviewSchema.index({ createdAt: -1 });
 
-const Review: Model<IReview> = mongoose.models.Review || 
-  mongoose.model<IReview>('Review', ReviewSchema);
+const Review: Model<IReview> = mongoose.models.Review as mongoose.Model<any>
+ || mongoose.model<IReview>('Review', ReviewSchema);
 
 export { Review };

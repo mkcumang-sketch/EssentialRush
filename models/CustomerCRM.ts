@@ -12,4 +12,4 @@ const CustomerCRMSchema = new mongoose.Schema({
   notes: { type: String, default: '' }
 }, { timestamps: true });
 
-export default mongoose.models.CustomerCRM || mongoose.model('CustomerCRM', CustomerCRMSchema);
+export default mongoose.models.CustomerCRM as mongoose.Model<any>|| mongoose.model('CustomerCRM', CustomerCRMSchema);

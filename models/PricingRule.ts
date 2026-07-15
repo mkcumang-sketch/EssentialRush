@@ -8,4 +8,4 @@ const PricingRuleSchema = new mongoose.Schema({
   trendingThreshold: { type: Number, default: 10 } // Sales above this triggers markup
 }, { timestamps: true });
 
-export default mongoose.models.PricingRule || mongoose.model('PricingRule', PricingRuleSchema);
+export default mongoose.models.PricingRule as mongoose.Model<any>|| mongoose.model('PricingRule', PricingRuleSchema);

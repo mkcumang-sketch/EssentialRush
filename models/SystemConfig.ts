@@ -13,4 +13,4 @@ const SystemConfigSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-export default mongoose.models.SystemConfig || mongoose.model('SystemConfig', SystemConfigSchema);
+export default mongoose.models.SystemConfig as mongoose.Model<any>|| mongoose.model('SystemConfig', SystemConfigSchema);

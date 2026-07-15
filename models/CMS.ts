@@ -128,6 +128,6 @@ const CMSSchema = new Schema(
 );
 
 // 🚀 Generic is still applied here so the rest of your app knows exactly what data to expect
-const CMS: Model<ICMSDocument> = mongoose.models.CMS || mongoose.model<ICMSDocument>('CMS', CMSSchema);
+const CMS: Model<ICMSDocument> = mongoose.models.CMS as mongoose.Model<ICMSDocument>|| mongoose.model<ICMSDocument>('CMS', CMSSchema);
 
 export { CMS };

@@ -13,4 +13,4 @@ const siteContentSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-export const SiteContent = mongoose.models.SiteContent || mongoose.model("SiteContent", siteContentSchema);
+export const SiteContent = mongoose.models.SiteContent as mongoose.Model<any>|| mongoose.model("SiteContent", siteContentSchema);

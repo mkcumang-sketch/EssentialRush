@@ -7,4 +7,4 @@ const heroSchema = new mongoose.Schema({
   ctaLink: { type: String, default: "/collection" },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
-export const Hero = mongoose.models.Hero || mongoose.model("Hero", heroSchema);
+export const Hero = mongoose.models.Hero as mongoose.Model<any>|| mongoose.model("Hero", heroSchema);

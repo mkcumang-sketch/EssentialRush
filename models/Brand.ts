@@ -6,4 +6,4 @@ const brandSchema = new mongoose.Schema({
   description: { type: String },
 }, { timestamps: true });
 
-export const Brand = mongoose.models.Brand || mongoose.model("Brand", brandSchema);
+export const Brand = mongoose.models.Brand as mongoose.Model<any>|| mongoose.model("Brand", brandSchema);

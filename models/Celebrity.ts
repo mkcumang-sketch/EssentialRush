@@ -56,7 +56,7 @@ const celebritySchema = new Schema<ICelebrity>(
 celebritySchema.index({ name: 1 });
 celebritySchema.index({ createdAt: -1 });
 
-const Celebrity: Model<ICelebrity> = mongoose.models.Celebrity || 
+const Celebrity: Model<ICelebrity> = mongoose.models.Celebrity as mongoose.Model<ICelebrity>|| 
   mongoose.model<ICelebrity>('Celebrity', celebritySchema);
 
 export { Celebrity };

@@ -21,6 +21,7 @@ const ReferralSchema = new Schema<IReferral>(
 );
 
 // Prevent Next.js from recompiling the model multiple times
-const Referral = models.Referral || mongoose.model<IReferral>('Referral', ReferralSchema);
+const Referral = models.Referral as mongoose.Model<any>
+ || mongoose.model<IReferral>('Referral', ReferralSchema);
 
 export default Referral;

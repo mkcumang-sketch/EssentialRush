@@ -7,6 +7,6 @@ const activityLogSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-const ActivityLog = mongoose.models.ActivityLog || mongoose.model('ActivityLog', activityLogSchema);
+const ActivityLog = mongoose.models.ActivityLog as mongoose.Model<any>|| mongoose.model('ActivityLog', activityLogSchema);
 
 export default ActivityLog;

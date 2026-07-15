@@ -20,6 +20,6 @@ const cmsSchema = new mongoose.Schema({
     faqs: { type: Array, default: [] }
 }, { timestamps: true, strict: false }); // strict:false helps if you have other dynamic data
 
-const CmsConfig = mongoose.models.CmsConfig || mongoose.model('CmsConfig', cmsSchema);
+const CmsConfig = mongoose.models.CmsConfig as mongoose.Model<any>|| mongoose.model('CmsConfig', cmsSchema);
 
 export default CmsConfig;

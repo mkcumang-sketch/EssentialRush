@@ -14,4 +14,6 @@ const PolicySchema: Schema = new Schema({
   lastUpdated: { type: Date, default: Date.now },
 }, { timestamps: true });
 
-export const Policy = mongoose.models.Policy || mongoose.model<IPolicy>('Policy', PolicySchema);
+export const Policy = mongoose.models.Policy as mongoose.Model<any> || mongoose.model
+('Policy', PolicySchema);
+

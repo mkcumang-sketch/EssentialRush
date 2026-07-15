@@ -22,5 +22,5 @@ const UserBehaviorSchema = new mongoose.Schema({
   agentRef: { type: String, default: null } 
 }, { timestamps: true });
 
-const UserBehavior = mongoose.models.UserBehavior || mongoose.model('UserBehavior', UserBehaviorSchema);
+const UserBehavior = mongoose.models.UserBehavior as mongoose.Model<any>|| mongoose.model('UserBehavior', UserBehaviorSchema);
 export { UserBehavior };

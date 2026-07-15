@@ -11,4 +11,4 @@ const withdrawalRequestSchema = new mongoose.Schema({
   status: { type: String, default: 'PENDING' },
 }, { timestamps: true });
 
-export default mongoose.models.WithdrawalRequest || mongoose.model('WithdrawalRequest', withdrawalRequestSchema);
+export default mongoose.models.WithdrawalRequest as mongoose.Model<any> || mongoose.model('WithdrawalRequest', withdrawalRequestSchema);

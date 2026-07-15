@@ -8,4 +8,4 @@ const staffSchema = new mongoose.Schema({
   totalRevenue: { type: Number, default: 0 }, // Kitne ka dhandha diya
 }, { timestamps: true });
 
-export const Staff = mongoose.models.Staff || mongoose.model("Staff", staffSchema);
+export const Staff = mongoose.models.Staff as mongoose.Model<any> || mongoose.model("Staff", staffSchema);

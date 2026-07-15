@@ -11,5 +11,5 @@ const AgentSchema = new mongoose.Schema({
   revenue: { type: Number, default: 0 }
 }, { timestamps: true, strict: false });
 
-const Agent = mongoose.models.Agent || mongoose.model('Agent', AgentSchema);
+const Agent = mongoose.models.Agent as mongoose.Model<any>|| mongoose.model('Agent', AgentSchema);
 export { Agent };

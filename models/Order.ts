@@ -53,6 +53,4 @@ const OrderSchema = new Schema<IOrder>({
 });
 
 // ✅ FIX: Explicitly type as Model<IOrder> — resolves ts(2349) union type error
-export const Order: Model<IOrder> =
-  (mongoose.models.Order as Model<IOrder>) ||
-  mongoose.model<IOrder>('Order', OrderSchema, 'orders');
+export const Order = (mongoose.models.Order as mongoose.Model<any>) || mongoose.model('Order', OrderSchema);
