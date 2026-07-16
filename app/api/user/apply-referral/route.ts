@@ -21,10 +21,11 @@ export async function POST(req: Request) {
         
         // 3. Optional: Add a notification to the Referrer's schema
         referrer.notifications.push({
-            title: "Referral Reward!",
-            desc: "Someone joined with your code. ₹100 added to your wallet.",
-            unread: true
-        });
+    title: "Referral Reward!",
+    desc: "Someone used your code.",
+    unread: true,
+    time: new Date() // 🚀 Ye line add karni hai
+});
         
         await referrer.save();
 

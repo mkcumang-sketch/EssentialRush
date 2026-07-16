@@ -1,5 +1,11 @@
-import mongoose from 'mongoose';
 import connectDB from './mongodb';
+import mongoose from "mongoose";
+import User from "@/models/usertemp"; 
+import { Order } from "@/models/Order";
+
+// 🚀 FIX: Models ko explicitly cast kiya gaya hai taaki TS2349 union type error hat jaye
+const UserModel = User as mongoose.Model<any>;
+const OrderModel = Order as mongoose.Model<any>;
 
 const FRAUD_THRESHOLDS = {
     MAX_ACCOUNTS_PER_IP: 3,
@@ -27,11 +33,10 @@ export async function checkFraudRisk(
     const flags: string[] = [];
     let riskScore = 0;
     
-    const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({}, { strict: false }));
-    const Order = mongoose.models.Order || mongoose.model('Order', new mongoose.Schema({}, { strict: false }));
+    // 🚀 FIX: Removed local schema re-declarations. Using global UserModel & OrderModel
     
-    // 1. CHECK: Multiple accounts from same IP
-    const accountsWithSameIP = await User.countDocuments({
+    // 1. CHECK: Multiple accounts from same IP/phone
+    const accountsWithSameIP = await UserModel.countDocuments({
         $or: [
             { phone: { $regex: `^${phone.slice(0, 6)}` } },
         ]
@@ -46,10 +51,10 @@ export async function checkFraudRisk(
     if (referralCode) {
         const newAccountCutoff = new Date(Date.now() - FRAUD_THRESHOLDS.NEW_ACCOUNT_WINDOW_HOURS * 60 * 60 * 1000);
         
-        const referrer = await User.findOne({ myReferralCode: referralCode });
+        const referrer = await UserModel.findOne({ myReferralCode: referralCode });
         
         if (referrer) {
-            const recentReferrals = await User.countDocuments({
+            const recentReferrals = await UserModel.countDocuments({
                 appliedReferralCode: referralCode,
                 createdAt: { $gte: newAccountCutoff }
             });
@@ -62,7 +67,7 @@ export async function checkFraudRisk(
     }
     
     // 3. CHECK: Suspicious order patterns
-    const recentOrders = await Order.find({
+    const recentOrders = await OrderModel.find({
         $or: [
             { 'shippingData.email': email.toLowerCase() },
             { 'shippingData.phone': phone },
@@ -76,7 +81,7 @@ export async function checkFraudRisk(
     }
     
     // 4. CHECK: IP velocity
-    const ipOrdersLastHour = await Order.countDocuments({
+    const ipOrdersLastHour = await OrderModel.countDocuments({
         'shippingData.$db': { $exists: false },
         createdAt: { $gte: new Date(Date.now() - 60 * 60 * 1000) }
     });
@@ -115,10 +120,10 @@ export async function flagSuspiciousOrder(
 ) {
     await connectDB();
     
-    const Order = mongoose.models.Order || mongoose.model('Order', new mongoose.Schema({}, { strict: false }));
+    // 🚀 FIX: Removed local schema re-declaration
     
     if (fraudResult.isSuspicious) {
-        await Order.findOneAndUpdate(
+        await OrderModel.findOneAndUpdate(
             { orderId },
             {
                 $set: {
@@ -142,23 +147,23 @@ export async function getFraudStats(): Promise<{
 }> {
     await connectDB();
     
-    const Order = mongoose.models.Order || mongoose.model('Order', new mongoose.Schema({}, { strict: false }));
+    // 🚀 FIX: Removed local schema re-declaration
     
-    const suspiciousOrders = await Order.countDocuments({
+    const suspiciousOrders = await OrderModel.countDocuments({
         fraudStatus: 'REVIEW'
     });
     
-    const blockedOrders = await Order.countDocuments({
+    const blockedOrders = await OrderModel.countDocuments({
         fraudStatus: 'BLOCK'
     });
     
-    const flaggedIPs = await Order.distinct('fraudIp', {
+    const flaggedIPs = await OrderModel.distinct('fraudIp', {
         fraudIp: { $exists: true, $ne: null }
     });
     
     return {
         suspiciousOrders,
         blockedOrders,
-        flaggedIPs
+        flaggedIPs: flaggedIPs as string[] // 🚀 FIX: Safely cast to string[]
     };
 }
